@@ -5,10 +5,12 @@
 
 
 from mvnc import mvncapi as mvnc
+from imutils.video import FPS
 import numpy
 import cv2
 import sys
 import os
+import time
 
 EXAMPLES_BASE_DIR='../../'
 IMAGES_DIR = './'
@@ -16,6 +18,8 @@ IMAGES_DIR = './'
 validated_image_list = os.listdir("./validated_images/")
 
 GRAPH_FILENAME = "facenet_celeb_ncs.graph"
+#GRAPH_FILENAME = "facenet_celeb_ncs_128.graph"
+#GRAPH_FILENAME = "facenet_celeb_ncs_512.graph"
 
 # name of the opencv window
 CV_WINDOW_NAME = "FaceNet- Multiple people"
@@ -31,12 +35,26 @@ FACE_MATCH_THRESHOLD = 0.2
 
 DETECTOR = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
+        return result
+    return timed
+    
 # Run an inference on the passed image
 # image_to_classify is the image on which an inference will be performed
 #    upon successful return this image will be overlayed with boxes
 #    and labels identifying the found objects within the image.
 # ssd_mobilenet_graph is the Graph object from the NCAPI which will
 #    be used to peform the inference.
+@timeit
 def run_inference(image_to_classify, facenet_graph):
 
     # get a resized version of the image that is the dimensions
@@ -61,6 +79,7 @@ def run_inference(image_to_classify, facenet_graph):
 # image info is a text string to overlay onto the image.
 # matching is a Boolean specifying if the image was a match.
 # returns None
+@timeit
 def overlay_on_image(display_image, image_info, matching, face_rects):
     rect_width = 10
     offset = int(rect_width/2)
@@ -99,6 +118,7 @@ def whiten_image(source_image):
 
 # create a preprocessed image from the source image that matches the
 # network expectations and return it
+@timeit
 def preprocess_image(src):
     # convert the input frame from (1) BGR to grayscale (for face detection)
     gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
@@ -185,6 +205,8 @@ def run_camera(valid_output, validated_image_filename, graph):
     cv2.namedWindow(CV_WINDOW_NAME)
 
     found_match = False
+    # start the FPS counter
+    fps = FPS().start()
 
     while True :
         # Read image from camera,
@@ -195,7 +217,8 @@ def run_camera(valid_output, validated_image_filename, graph):
 
         frame_count += 1
         frame_name = 'camera frame ' + str(frame_count)
-
+        # update the FPS counter
+        fps.update()
         # run a single inference on the image and overwrite the
         # boxes and labels
         test_output, face_rects = run_inference(vid_image, graph)
@@ -234,6 +257,10 @@ def run_camera(valid_output, validated_image_filename, graph):
                 print('user pressed Q')
                 break
 
+    # stop the timer and display FPS information
+    fps.stop()
+    print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+    print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
     if (found_match):
         cv2.imshow(CV_WINDOW_NAME, vid_image)
         cv2.waitKey(0)
