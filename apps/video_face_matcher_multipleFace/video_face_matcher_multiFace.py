@@ -22,16 +22,18 @@ GRAPH_FILENAME = "facenet_celeb_ncs.graph"
 #GRAPH_FILENAME = "facenet_celeb_ncs_512.graph"
 
 # name of the opencv window
-CV_WINDOW_NAME = "FaceNet- Multiple people"
+CV_WINDOW_NAME = "FaceNet- Multiple people - HAAR cascade"
 
 CAMERA_INDEX = 0
-REQUEST_CAMERA_WIDTH = 960
-REQUEST_CAMERA_HEIGHT = 720
+# REQUEST_CAMERA_WIDTH = 960
+# REQUEST_CAMERA_HEIGHT = 720
+REQUEST_CAMERA_WIDTH = 640
+REQUEST_CAMERA_HEIGHT = 480
 
 # the same face will return 0.0
 # different faces return higher numbers
 # this is NOT between 0.0 and 1.0
-FACE_MATCH_THRESHOLD = 0.2
+FACE_MATCH_THRESHOLD = 0.25
 
 DETECTOR = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
@@ -47,39 +49,42 @@ def timeit(method):
             print('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
         return result
     return timed
-    
+
 # Run an inference on the passed image
 # image_to_classify is the image on which an inference will be performed
 #    upon successful return this image will be overlayed with boxes
 #    and labels identifying the found objects within the image.
 # ssd_mobilenet_graph is the Graph object from the NCAPI which will
 #    be used to peform the inference.
-@timeit
 def run_inference(image_to_classify, facenet_graph):
 
     # get a resized version of the image that is the dimensions
     # SSD Mobile net expects
     resized_image, face_rects = preprocess_image(image_to_classify)
 
+    output = calculate_vector_on_ncs(resized_image, facenet_graph)
+
+    return output, face_rects
+
+@timeit
+def calculate_vector_on_ncs(image_to_classify, facenet_graph):
     # ***************************************************************
     # Send the image to the NCS
     # ***************************************************************
-    facenet_graph.LoadTensor(resized_image.astype(numpy.float16), None)
+    facenet_graph.LoadTensor(image_to_classify.astype(numpy.float16), None)
 
     # ***************************************************************
     # Get the result from the NCS
     # ***************************************************************
     output, userobj = facenet_graph.GetResult()
 
-    return output, face_rects
-
+    return output
 
 # overlays the boxes and labels onto the display image.
 # display_image is the image on which to overlay to
 # image info is a text string to overlay onto the image.
 # matching is a Boolean specifying if the image was a match.
 # returns None
-@timeit
 def overlay_on_image(display_image, image_info, matching, face_rects):
     rect_width = 10
     offset = int(rect_width/2)
