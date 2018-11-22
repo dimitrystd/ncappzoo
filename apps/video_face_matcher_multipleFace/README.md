@@ -1,3 +1,11 @@
+# Customizations
+* Tried to improve quality of face matching. Added "Haar cascades" for `video_face_matcher_multipleFace` app. Works better than the original app but really slow
+  * Standard app returns `min_distance` 0.7-1
+  * New app returns `min_distance` 0.08-0.3. But 800-900msec takes haar cascades
+* `facenet_celeb_ncs_converted_graphs.zip` contains preconverted graphs that are ready for use with NCS
+  * `facenet_celeb_ncs_128.graph` - converted from `20170512-110547.zip` (part of standard `/ncappzoo/tensorflow/facenet` demo)
+  * `facenet_celeb_ncs_512.graph` - converted from `20180402-114759.zip`. It requires to change `inception_resnet_v1.py` (see [this topic](https://ncsforum.movidius.com/discussion/1276/facenet-convert-failed#latest))
+
 # Introduction
 The video_face_matcher_multipleFace example app uses the TensorFlow [ncappzoo/tensorflow/facenet](../../tensorflow/facenet) neural network to find a face in a video camera stream that matches with a list of known face image.  
 
