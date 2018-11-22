@@ -21,16 +21,16 @@ GRAPH_FILENAME = "facenet_celeb_ncs.graph"
 CV_WINDOW_NAME = "FaceNet- Multiple people"
 
 CAMERA_INDEX = 0
-REQUEST_CAMERA_WIDTH = 640
-REQUEST_CAMERA_HEIGHT = 480
+REQUEST_CAMERA_WIDTH = 960
+REQUEST_CAMERA_HEIGHT = 720
 
 # the same face will return 0.0
 # different faces return higher numbers
 # this is NOT between 0.0 and 1.0
-FACE_MATCH_THRESHOLD = 0.8
+FACE_MATCH_THRESHOLD = 0.2
 
 DETECTOR = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    
+
 # Run an inference on the passed image
 # image_to_classify is the image on which an inference will be performed
 #    upon successful return this image will be overlayed with boxes
@@ -41,7 +41,7 @@ def run_inference(image_to_classify, facenet_graph):
 
     # get a resized version of the image that is the dimensions
     # SSD Mobile net expects
-    resized_image = preprocess_image(image_to_classify)
+    resized_image, face_rects = preprocess_image(image_to_classify)
 
     # ***************************************************************
     # Send the image to the NCS
@@ -53,7 +53,7 @@ def run_inference(image_to_classify, facenet_graph):
     # ***************************************************************
     output, userobj = facenet_graph.GetResult()
 
-    return output
+    return output, face_rects
 
 
 # overlays the boxes and labels onto the display image.
@@ -61,7 +61,7 @@ def run_inference(image_to_classify, facenet_graph):
 # image info is a text string to overlay onto the image.
 # matching is a Boolean specifying if the image was a match.
 # returns None
-def overlay_on_image(display_image, image_info, matching):
+def overlay_on_image(display_image, image_info, matching, face_rects):
     rect_width = 10
     offset = int(rect_width/2)
     if (image_info != None):
@@ -77,6 +77,17 @@ def overlay_on_image(display_image, image_info, matching):
                       (display_image.shape[1]-offset-1, display_image.shape[0]-offset-1),
                       (0, 0, 255), 10)
                       
+    # OpenCV returns bounding box coordinates in (x, y, w, h) order
+    # but we need them in (top, right, bottom, left) order, so we
+    # need to do a bit of reordering
+    boxes = [(y, x + w, y + h, x) for (x, y, w, h) in face_rects]
+    # loop over the recognized faces
+    for (top, right, bottom, left) in boxes:
+        # draw the predicted face name on the image
+        cv2.rectangle(display_image, (left, top), (right, bottom),
+            (0, 255, 0), 2)
+
+
 
 # whiten an image
 def whiten_image(source_image):
@@ -117,7 +128,7 @@ def preprocess_image(src):
     preprocessed_image = whiten_image(preprocessed_image)
 
     # return the preprocessed image
-    return preprocessed_image
+    return preprocessed_image, face_rects
 
 # determine if two images are of matching faces based on the
 # the network output for both images.
@@ -187,7 +198,7 @@ def run_camera(valid_output, validated_image_filename, graph):
 
         # run a single inference on the image and overwrite the
         # boxes and labels
-        test_output = run_inference(vid_image, graph)
+        test_output, face_rects = run_inference(vid_image, graph)
 
         min_distance = 100
         min_index = -1
@@ -206,7 +217,7 @@ def run_camera(valid_output, validated_image_filename, graph):
             found_match = False
             print('FAIL!  File ' + frame_name + ' does not match any image.')
 
-        overlay_on_image(vid_image, frame_name, found_match)
+        overlay_on_image(vid_image, frame_name, found_match, face_rects)
 
         # check if the window is visible, this means the user hasn't closed
         # the window via the X button
@@ -257,9 +268,12 @@ def main():
     graph = device.AllocateGraph(graph_in_memory)
 
     valid_output = []
+    print('Load valid images...')
     for i in validated_image_list:
         validated_image = cv2.imread("./validated_images/"+i)
-        valid_output.append(run_inference(validated_image, graph))
+        output, _ = run_inference(validated_image, graph)
+        
+        valid_output.append(output)
     if (use_camera):
         run_camera(valid_output, validated_image_list, graph)
     else:
