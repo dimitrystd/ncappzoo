@@ -29,7 +29,8 @@ REQUEST_CAMERA_HEIGHT = 480
 # this is NOT between 0.0 and 1.0
 FACE_MATCH_THRESHOLD = 0.8
 
-
+DETECTOR = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    
 # Run an inference on the passed image
 # image_to_classify is the image on which an inference will be performed
 #    upon successful return this image will be overlayed with boxes
@@ -75,7 +76,7 @@ def overlay_on_image(display_image, image_info, matching):
         cv2.rectangle(display_image, (0+offset, 0+offset),
                       (display_image.shape[1]-offset-1, display_image.shape[0]-offset-1),
                       (0, 0, 255), 10)
-
+                      
 
 # whiten an image
 def whiten_image(source_image):
@@ -88,6 +89,22 @@ def whiten_image(source_image):
 # create a preprocessed image from the source image that matches the
 # network expectations and return it
 def preprocess_image(src):
+    # convert the input frame from (1) BGR to grayscale (for face detection)
+    gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    # detect faces in the grayscale frame
+    face_rects = DETECTOR.detectMultiScale(gray, scaleFactor=1.1, 
+        minNeighbors=5, minSize=(30, 30),
+        flags=cv2.CASCADE_SCALE_IMAGE)
+    sub_face = None
+    for i, face in enumerate(face_rects):
+        x, y, w, h = face
+        sub_face = src[y:y + h, x:x + w]
+        print("Found face")
+        break
+    
+    if sub_face is not None:
+        src = sub_face
+
     # scale the image
     NETWORK_WIDTH = 160
     NETWORK_HEIGHT = 160
