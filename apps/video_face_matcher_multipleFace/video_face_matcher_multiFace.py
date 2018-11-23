@@ -8,6 +8,7 @@ from mvnc import mvncapi as mvnc
 from imutils.video import FPS
 import numpy
 import cv2
+import dlib
 import sys
 import os
 import time
@@ -22,7 +23,7 @@ GRAPH_FILENAME = "facenet_celeb_ncs.graph"
 #GRAPH_FILENAME = "facenet_celeb_ncs_512.graph"
 
 # name of the opencv window
-CV_WINDOW_NAME = "FaceNet- Multiple people - HAAR cascade"
+CV_WINDOW_NAME = "FaceNet- Multiple people - HOG"
 
 CAMERA_INDEX = 0
 # REQUEST_CAMERA_WIDTH = 960
@@ -35,7 +36,7 @@ REQUEST_CAMERA_HEIGHT = 480
 # this is NOT between 0.0 and 1.0
 FACE_MATCH_THRESHOLD = 0.25
 
-DETECTOR = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+DETECTOR = dlib.get_frontal_face_detector()
 
 def timeit(method):
     def timed(*args, **kw):
@@ -101,14 +102,10 @@ def overlay_on_image(display_image, image_info, matching, face_rects):
                       (display_image.shape[1]-offset-1, display_image.shape[0]-offset-1),
                       (0, 0, 255), 10)
                       
-    # OpenCV returns bounding box coordinates in (x, y, w, h) order
-    # but we need them in (top, right, bottom, left) order, so we
-    # need to do a bit of reordering
-    boxes = [(y, x + w, y + h, x) for (x, y, w, h) in face_rects]
     # loop over the recognized faces
-    for (top, right, bottom, left) in boxes:
-        # draw the predicted face name on the image
-        cv2.rectangle(display_image, (left, top), (right, bottom),
+    for face in face_rects:
+        # draw the predicted face box on the image
+        cv2.rectangle(display_image, (face.left(), face.top()), (face.right(), face.bottom()),
             (0, 255, 0), 2)
 
 
@@ -128,13 +125,10 @@ def preprocess_image(src):
     # convert the input frame from (1) BGR to grayscale (for face detection)
     gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
     # detect faces in the grayscale frame
-    face_rects = DETECTOR.detectMultiScale(gray, scaleFactor=1.1, 
-        minNeighbors=5, minSize=(30, 30),
-        flags=cv2.CASCADE_SCALE_IMAGE)
+    face_rects = DETECTOR(gray, 0)
     sub_face = None
-    for i, face in enumerate(face_rects):
-        x, y, w, h = face
-        sub_face = src[y:y + h, x:x + w]
+    for face in face_rects:
+        sub_face = src[face.top():face.bottom(), face.left():face.right()]
         print("Found face")
         break
     

@@ -1,10 +1,23 @@
 # Customizations
-* Tried to improve quality of face matching. Added "Haar cascades" for `video_face_matcher_multipleFace` app. Works better than the original app but really slow
+* Tried to improve quality of face matching. Added HOG for `video_face_matcher_multipleFace` app. Works better than the original app but really slow
   * Standard app returns `min_distance` 0.7-1
-  * New app returns `min_distance` 0.08-0.3. But 800-900msec takes haar cascades
-* `facenet_celeb_ncs_converted_graphs.zip` contains preconverted graphs that are ready for use with NCS
-  * `facenet_celeb_ncs_128.graph` - converted from `20170512-110547.zip` (part of standard `/ncappzoo/tensorflow/facenet` demo)
-  * `facenet_celeb_ncs_512.graph` - converted from `20180402-114759.zip`. It requires to change `inception_resnet_v1.py` (see [this topic](https://ncsforum.movidius.com/discussion/1276/facenet-convert-failed#latest))
+  * New app returns `min_distance` 0.08-0.3. But 950-1100msec takes HOG
+  * Used [this article](https://www.pyimagesearch.com/2018/04/02/faster-facial-landmark-detector-with-dlib/) as example
+* Quick test results (executed on `raspberry 3 B+`)
+    ```
+    Use HOG
+    [INFO] elasped time: 32.61
+    [INFO] approx. FPS: 0.74
+    
+    Use HAAR
+    [INFO] elasped time: 21.95
+    [INFO] approx. FPS: 1.23
+    
+    Use https://www.pyimagesearch.com/2018/06/25/raspberry-pi-face-recognition/
+    [INFO] elasped time: 20.02
+    [INFO] approx. FPS: 2.05
+    ```
+    The last one doesn't use NCS but works faster, but of course less accuracy
 
 # Introduction
 The video_face_matcher_multipleFace example app uses the TensorFlow [ncappzoo/tensorflow/facenet](../../tensorflow/facenet) neural network to find a face in a video camera stream that matches with a list of known face image.  
