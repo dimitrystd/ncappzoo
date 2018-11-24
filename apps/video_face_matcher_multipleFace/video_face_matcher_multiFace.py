@@ -35,7 +35,15 @@ REQUEST_CAMERA_HEIGHT = 480
 # this is NOT between 0.0 and 1.0
 FACE_MATCH_THRESHOLD = 0.25
 
-DETECTOR = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+# opencv cropped face padding. Make this larger to increase rectangle size. Percent value
+PADDING = 15
+
+# CLASSIFIER = "haarcascade_frontalface_default.xml"        # [INFO] approx. FPS: 1.07
+# CLASSIFIER = "haarcascade_frontalface_alt.xml"            # [INFO] approx. FPS: 0.81
+CLASSIFIER = "haarcascade_frontalface_alt2.xml"           # [INFO] approx. FPS: 1.39
+# CLASSIFIER = "lbpcascade_frontalface.xml"                 # [INFO] approx. FPS: 1.44
+# CLASSIFIER = "lbpcascade_frontalface_improved.xml"
+DETECTOR = cv2.CascadeClassifier(CLASSIFIER)
 
 def timeit(method):
     def timed(*args, **kw):
@@ -101,12 +109,8 @@ def overlay_on_image(display_image, image_info, matching, face_rects):
                       (display_image.shape[1]-offset-1, display_image.shape[0]-offset-1),
                       (0, 0, 255), 10)
                       
-    # OpenCV returns bounding box coordinates in (x, y, w, h) order
-    # but we need them in (top, right, bottom, left) order, so we
-    # need to do a bit of reordering
-    boxes = [(y, x + w, y + h, x) for (x, y, w, h) in face_rects]
     # loop over the recognized faces
-    for (top, right, bottom, left) in boxes:
+    for (left, top, right, bottom) in face_rects:
         # draw the predicted face name on the image
         cv2.rectangle(display_image, (left, top), (right, bottom),
             (0, 255, 0), 2)
@@ -134,7 +138,17 @@ def preprocess_image(src):
     sub_face = None
     for i, face in enumerate(face_rects):
         x, y, w, h = face
-        sub_face = src[y:y + h, x:x + w]
+        # Expand the detected face boundaries to have more padding and include the whole head
+        # Or if the rectangle boundary falls outside the window cut it off at the edge
+        width_padding = int(w * PADDING / 100)
+        height_padding = int(h * PADDING / 100)
+        x1 = max(x - width_padding, 0)
+        y1 = max(y - height_padding, 0)
+        x2 = min(x + w + width_padding, REQUEST_CAMERA_WIDTH)
+        y2 = min(y + h + height_padding, REQUEST_CAMERA_HEIGHT)
+        sub_face = src[y1:y2, x1:x2]
+        # left, top, right, bottom
+        face_rects = [(x1, y1, x2, y2)]
         print("Found face")
         break
     
@@ -300,6 +314,7 @@ def main():
     graph = device.AllocateGraph(graph_in_memory)
 
     valid_output = []
+    print('Use classifier {}'.format(CLASSIFIER))
     print('Load valid images...')
     for i in validated_image_list:
         validated_image = cv2.imread("./validated_images/"+i)
